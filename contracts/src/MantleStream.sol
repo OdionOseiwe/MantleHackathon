@@ -30,7 +30,7 @@ contract MantleStream is ReentrancyGuard{
     }
 
 
-    address constant MNT = 0x65e37B558F64E2Be5768DB46DF22F93d85741A9E;
+    address immutable USDT;
     mapping(uint256 => Stream) public streams;
     uint256 streamCounter = 1;
 
@@ -43,6 +43,10 @@ contract MantleStream is ReentrancyGuard{
     event StreamPaused(uint256 indexed id);
     event StreamUnpaused(uint256 indexed id);
 
+    constructor(address _usdtAddress) {
+        require(_usdtAddress != address(0), "Invalid USDT address");
+        USDT = _usdtAddress;
+    }
 
     ///@dev used to create stream
     ///@param _recipient the address that can claim money stream
@@ -61,7 +65,7 @@ contract MantleStream is ReentrancyGuard{
         require(_recipient != address(0), "invalid recipient");
         require(_amount > 0 && _duration > 0, "invalid amount or duration");
 
-        bool success = IERC20(MNT).transferFrom(msg.sender, address(this), _amount);
+        bool success = IERC20(USDT).transferFrom(msg.sender, address(this), _amount);
         require(success, "transfer failed");
 
         uint256 id = streamCounter;
@@ -113,7 +117,7 @@ contract MantleStream is ReentrancyGuard{
         }
         require(totalPercent == 10000, "percentages must sum to 10000");
 
-        bool success = IERC20(MNT).transferFrom(msg.sender, address(this), _amount);
+        bool success = IERC20(USDT).transferFrom(msg.sender, address(this), _amount);
         require(success, "transfer failed");
         uint256 id = streamCounter;
 
@@ -165,7 +169,7 @@ contract MantleStream is ReentrancyGuard{
         }
 
         // Transfer tokens
-        bool success =IERC20(MNT).transfer(msg.sender, _amount);
+        bool success =IERC20(USDT).transfer(msg.sender, _amount);
         require(success, "transfer failed");
         emit WithdrawFromStream(_streamId, msg.sender, _amount);
     }
@@ -194,7 +198,7 @@ contract MantleStream is ReentrancyGuard{
         }
 
         // Transfer tokens
-        bool success =IERC20(MNT).transfer(_receiver, _amount);
+        bool success =IERC20(USDT).transfer(_receiver, _amount);
         require(success, "transfer failed");
         emit TransferClaims(_streamId, _receiver, _amount);
     }
@@ -278,7 +282,7 @@ contract MantleStream is ReentrancyGuard{
 
             if (claimable > 0) {
                 stream.amountWithdrawn[i] += claimable;
-                bool success =IERC20(MNT).transfer(stream.recipient[i], claimable);
+                bool success =IERC20(USDT).transfer(stream.recipient[i], claimable);
                 require(success, "transfer failed");
             }   
         }
@@ -286,7 +290,7 @@ contract MantleStream is ReentrancyGuard{
 
         // Refund leftover unearned tokens to sender
         if (unstreamed > 0) {
-            bool success =IERC20(MNT).transfer(stream.sender, unstreamed);
+            bool success =IERC20(USDT).transfer(stream.sender, unstreamed);
             require(success, "transfer failed");
         }   
 
