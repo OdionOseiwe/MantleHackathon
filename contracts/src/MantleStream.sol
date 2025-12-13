@@ -324,4 +324,8 @@ contract MantleStream is ReentrancyGuard{
         uint256 balance = _calculateRewards(msg.sender, stream);
         return balance;
     }
+    
+    function getStreamsByUSer() view external returns(Stream[] memory){
+        
+    }
 }
