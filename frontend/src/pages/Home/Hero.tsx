@@ -1,8 +1,13 @@
 import Navbar from "../../components/Navbar"
+import { motion} from 'framer-motion'
+import { NavLink } from 'react-router-dom';
+
 
 export default function Hero() {
   return (
-    <div className="bg-linear-to-r from-[#0C1220] to-[#0F1625] md:h-screen md:px-15 py-5">
+    <motion.div 
+    initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1 }}}
+    className="bg-linear-to-r from-[#0C1220] to-[#0F1625] h-screen  md:px-15 py-3">
       <Navbar/>
     <section className="relative w-full min-h-[80vh] flex items-center justify-center px-6 bg-neutral-950">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.25),transparent_70%)]"></div>
@@ -20,21 +25,21 @@ export default function Hero() {
         </p>
 
         <div className="mt-10 flex justify-center space-x-6">
-          <button className="
+          <a href="/stream" className="
             md:px-8 px-4 py-3 text-lg rounded-xl font-medium 
             bg-[#3B82F6] text-black 
             hover:bg-blue-400 transition
           ">
             Create Stream
-          </button>
+          </a>
 
-          <button className="
+          <a href="/withdraw" className="
             md:px-8 px-4 py-3 text-lg rounded-xl font-medium 
             border border-[#3B82F6] text-white 
             hover:bg-[#3B82F6] hover:text-black transition
           ">
             Withdraw Stream
-          </button>
+          </a>
         </div>
 
         <p className="text-gray-400 text-sm mt-6">
@@ -42,12 +47,13 @@ export default function Hero() {
         </p>
       </div>
     </section>
-      <div className="flex md:hidden justify-center pt-5 space-x-7 text-[#ffffff] font-light">
-          <button className="hover:text-[#3B82F6] transition">HOME</button>
-          <button className="hover:text-[#3B82F6] transition">STREAM</button>
-          <button className="hover:text-[#3B82F6] transition">WITHDRAW</button>
-          <button className="hover:text-[#3B82F6] transition">HISTORY</button>
+      <div className="flex fixed bottom-0 left-0 right-0 z-50 bg-linear-to-r from-[#0C1220] to-[#0F1625] py-4 md:hidden justify-center space-x-7 text-[#ffffff] font-light">
+        <NavLink to="/" style={({ isActive })=>({
+            color: isActive ? "#3B82F6 " : '',})}  className={` hover:text-[#3B82F6] cursor-pointer transition flex `}>  <span>Home</span></NavLink>
+          <NavLink to="/stream"  style={({ isActive })=>({color: isActive ? "#3B82F6" : ''})}  className={`hover:text-[#3B82F6] cursor-pointer transition flex `}> <span>Stream</span></NavLink>
+          <NavLink to="/withdraw"  style={({ isActive })=>({color: isActive ? "#3B82F6" : ''})}  className={`hover:text-[#3B82F6] cursor-pointer transition flex `}>  <span>Withdraw</span> </NavLink>
+          <NavLink to="/history"  style={({ isActive })=>({color: isActive ? "#3B82F6" : ''})}  className={`hover:text-[#3B82F6] cursor-pointer transition flex `}> <span>History</span></NavLink>
         </div>
-    </div>
+    </motion.div>
   )
 }
