@@ -4,13 +4,17 @@ import { Trash2, Dot } from 'lucide-react';
 import { motion} from 'framer-motion'
 import {useWalletStore} from '../../store/Connect'
 import { NavLink } from 'react-router-dom';
+import { ethers } from "ethers";
 
 function Stream() {
-  const { walletAddress, status} = useWalletStore();
+  const { walletAddress, status, provider, signer} = useWalletStore();
   const isConnected = Boolean(walletAddress);
 
 
   const [stream, setStream] = useState("single");
+  const [amountEth, setAmountEth] = useState('');
+  const [durationSeconds, setDurationSeconds] = useState('');
+
   const [recipients, setRecipients] = useState([
     { address: "", percentage: "" },
   ]);
@@ -32,12 +36,24 @@ function Stream() {
     setRecipients(updated);
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+    const handleCreateStream = async (e, address:any) => {
+      e.preventDefault();
+      try {
+        if (!ethers.isAddress(address)) {
+          // setStatus('Invalid recipient address.');
+          return;
+        }
+        const totalAmountWei = ethers.parseEther((amountEth || '0').toString());
+        const duration = parseInt(durationSeconds || '0', 10);
+        if (totalAmountWei <= 0n || !Number.isFinite(duration) || duration <= 0) {
+          // setStatus('Enter a positive amount and duration.');
+          return;
+        }
+      } catch (error) {
+        
+      }
+    }
 
-    console.log("Recipients:", recipients);
-    // You now have full access to all input values
-  };
   return (
     <motion.div 
     initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1 }}}
@@ -140,7 +156,7 @@ function Stream() {
             </motion.form>:
             <motion.form
                 initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1}}}
-             onSubmit={handleSubmit}>
+             >
                 {recipients.map((recipient, index) => (
                   <div
                     key={index}
