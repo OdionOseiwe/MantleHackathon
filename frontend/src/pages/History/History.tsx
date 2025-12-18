@@ -5,7 +5,7 @@ import { NavLink } from 'react-router-dom';
 function History() {
   return (
     <motion.div
-      initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1}}} 
+    initial={{opacity:0, y: 50}} animate={{opacity:1, y:0, transition: { duration: 1 }}}
     className="min-h-screen bg-[radial-gradient(circle_at_center,#112347,#0F1625,#0C1220)] px-3 md:px-16 py-6">
       <Navbar />
 

@@ -14,6 +14,7 @@ contract MantleStream is ReentrancyGuard {
     struct Stream {
         uint256 id;
         address sender;
+        string message;
         address[] recipient;
         uint256[] percentages;
         uint256 duration;
@@ -75,6 +76,7 @@ contract MantleStream is ReentrancyGuard {
         USDT = _usdtAddress;
     }
 
+    //TODO: add a message 
     ///@dev used to create stream
     ///@param _recipient the address that can claim money stream
     ///@param _duration the length of stream
@@ -83,7 +85,8 @@ contract MantleStream is ReentrancyGuard {
     function createStream(
         address _recipient,
         uint256 _duration,
-        uint256 _amount
+        uint256 _amount,
+        string memory _message
     ) external nonReentrant returns (uint256) {
         require(_recipient != address(0), "invalid recipient");
         require(_amount > 0 && _duration > 0, "invalid amount or duration");
@@ -110,7 +113,7 @@ contract MantleStream is ReentrancyGuard {
         stream.flowRate = _amount / _duration;
         stream.active = true;
         stream.paused = false;
-        stream.id = id;
+        stream.message =_message;
 
         streamCounter++;
         streamsBySender[msg.sender].push(id);
@@ -120,6 +123,7 @@ contract MantleStream is ReentrancyGuard {
         return id;
     }
 
+    //TODO: add a message 
     ///@dev used to create stream for multiple recipient
     ///@param _recipients the addresses that can claim money stream
     ///@param _duration the length of stream
@@ -130,7 +134,8 @@ contract MantleStream is ReentrancyGuard {
         address[] memory _recipients,
         uint256 _duration,
         uint256 _amount,
-        uint256[] memory _percentages
+        uint256[] memory _percentages,
+        string memory _message
     ) external nonReentrant returns (uint256) {
         require(_recipients.length > 1, "need multiple recipients");
         require(_recipients.length == _percentages.length, "array mismatch");
@@ -171,7 +176,7 @@ contract MantleStream is ReentrancyGuard {
         stream.flowRate = _amount / _duration; // every second
         stream.active = true;
         stream.paused = false;
-        stream.id = id;
+        stream.message =_message;
 
         streamCounter++;
         streamsBySender[msg.sender].push(id);
@@ -391,18 +396,17 @@ contract MantleStream is ReentrancyGuard {
         return streamsByRecipient[user];
     }
 
-    function getUserRole(
-        uint256 streamId,
-        address user
-    ) external view returns (bool sender, bool recipient) {
-        Stream storage stream = streams[streamId];
-        sender = stream.sender == user;
-
-        for (uint256 i = 0; i < stream.recipient.length; i++) {
-            if (stream.recipient[i] == user) {
-                recipient = true;
-                break;
-            }
-        }
+    function getStreamArrays(uint256 streamId)
+        external
+        view
+        returns (
+            address[] memory recipients,
+            uint256[] memory percentages,
+            uint256[] memory withdrawn
+        )
+    {
+        Stream storage s = streams[streamId];
+        return (s.recipient, s.percentages, s.amountWithdrawn);
     }
+
 }

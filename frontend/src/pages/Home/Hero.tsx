@@ -6,7 +6,7 @@ import { NavLink } from 'react-router-dom';
 export default function Hero() {
   return (
     <motion.div 
-    initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1 }}}
+    initial={{opacity:0, y: 50}} animate={{opacity:1, y:0, transition: { duration: 1 }}}
     className="bg-linear-to-r from-[#0C1220] to-[#0F1625] h-screen  md:px-15 py-3">
       <Navbar/>
     <section className="relative w-full min-h-[80vh] flex items-center justify-center px-6 bg-neutral-950">

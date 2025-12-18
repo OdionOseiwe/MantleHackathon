@@ -1,26 +1,28 @@
 import Navbar from "../../components/Navbar";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Trash2, Dot } from 'lucide-react';
 import { motion} from 'framer-motion'
 import {useWalletStore} from '../../store/Connect'
 import { NavLink } from 'react-router-dom';
-import { ethers } from "ethers";
 
 function Stream() {
-  const { walletAddress, status, provider, signer} = useWalletStore();
+  const { walletAddress, status, createStream,createMultipleStream} = useWalletStore();
   const isConnected = Boolean(walletAddress);
 
 
   const [stream, setStream] = useState("single");
   const [amountEth, setAmountEth] = useState('');
-  const [durationSeconds, setDurationSeconds] = useState('');
+  const [message, setMessage] = useState('');
+  const [duration, setDuration] = useState('');
+  const [UintOfTime, setUintOfTime] = useState('')
+  const [singleBatchRecipient, setSingleBatchRecipient] = useState('');
 
   const [recipients, setRecipients] = useState([
-    { address: "", percentage: "" },
+    { address: "", percentage: 0 },
   ]);
 
   const addRecipient = () => {
-    setRecipients([...recipients, { address: "", percentage: "" }]);
+    setRecipients([...recipients, { address: "", percentage: 0 }]);
   };
 
   const removeRecipient = (index:number) => {
@@ -36,27 +38,58 @@ function Stream() {
     setRecipients(updated);
   };
 
-    const handleCreateStream = async (e, address:any) => {
+  const handleOptionChange = (event) => {
+    setUintOfTime(event.target.value);
+    console.log('Selected Value:', event.target.value);
+  };
+
+  const toSeconds = (value: number, unit: string) => {
+    if (unit === "Hours") return value * 3600;
+    if (unit === "Days") return value * 86400;
+    if (unit === "Months") return value * 30 * 86400;
+    return value;
+  };
+
+    const handleCreateStream = async (e:FormEvent) => {
       e.preventDefault();
       try {
-        if (!ethers.isAddress(address)) {
-          // setStatus('Invalid recipient address.');
+        if (!isConnected) {
+          alert("Connect wallet first");
           return;
         }
-        const totalAmountWei = ethers.parseEther((amountEth || '0').toString());
-        const duration = parseInt(durationSeconds || '0', 10);
-        if (totalAmountWei <= 0n || !Number.isFinite(duration) || duration <= 0) {
-          // setStatus('Enter a positive amount and duration.');
-          return;
-        }
+        const durationInSeconds = toSeconds(Number(duration),UintOfTime);
+        await createStream(singleBatchRecipient, amountEth, durationInSeconds,message);
+        setSingleBatchRecipient('');
+        setAmountEth('');
+        setUintOfTime('');
+        setDuration('');
+        setMessage('')
+
       } catch (error) {
-        
+        console.log(error);
+      }
+    }
+
+    const handleBatchStream = async(e:FormEvent) =>{
+      e.preventDefault();
+      try {
+        if (!isConnected) {
+          alert("Connect wallet first");
+          return;
+        }
+        const durationInSeconds = toSeconds(Number(duration),UintOfTime);
+        const addresses = recipients.map(r => r.address);
+        const percentages = recipients.map(r => r.percentage);
+
+        await createMultipleStream(addresses, durationInSeconds,amountEth,percentages,message);
+      }catch(error){
+        console.log(error);
       }
     }
 
   return (
     <motion.div 
-    initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1 }}}
+    initial={{opacity:0, y: 50}} animate={{opacity:1, y:0, transition: { duration: 1 }}}
     className="min-h-screen bg-radial-[at_50%_50%] to-[#0C1220]  via-[#0F1625] from-[#112347] to-80% px-2 md:px-16 py-3">
       <Navbar />
 
@@ -84,6 +117,7 @@ function Stream() {
           {
             stream === "single" ? 
             <motion.form 
+              onSubmit={handleCreateStream}
                 initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1}}}
             className = "mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
              
@@ -92,19 +126,38 @@ function Stream() {
                   Recipient Address
                 </label>
                 <input
+                  value={singleBatchRecipient}
+                  onChange={(e)=>setSingleBatchRecipient(e.target.value)}
                   type="text"
                   placeholder="0x..."
+                  required
                   className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                 />
               </div>
+                <div className=" col-span-2">
+                  <label className="text-sm text-white/70">
+                    message
+                  </label>
+                  <textarea
+                    value={message}
+                    onChange={(e)=>setMessage(e.target.value)}
+                    placeholder="SALARY FOR 2026"
+                    maxLength={100}
+                    required
+                    className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                  />
+                </div>
 
               <div className="col-span-2 md:col-span-1">
                 <label className="text-sm text-white/70">
                   Total Amount (USDT)
                 </label>
                 <input
+                  value={amountEth}
+                  onChange={(e)=>setAmountEth(e.target.value)}
                   type="number"
                   placeholder="1000"
+                  required
                   className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                 />
               </div>
@@ -115,16 +168,21 @@ function Stream() {
                 </label>
                 <div className="flex mt-2 space-x-2">
                   <input
+                    value={duration}
+                    onChange={(e)=>setDuration(e.target.value)}
                     type="number"
                     placeholder="30"
+                    required
                     className="w-2/3 rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                   />
                   <select
+                    value={UintOfTime} onChange={handleOptionChange} required
                     className="w-1/3 rounded-xl bg-[#1D2637] border border-white/10 px-3 py-3 text-white focus:outline-none"
                   >
-                    <option>Hours</option>
-                    <option>Days</option>
-                    <option>Months</option>
+                    <option disabled value="">Uint of Time</option>
+                    <option value="Hours">Hours</option>
+                    <option value="Days">Days</option>
+                    <option value="Months">Months</option>
                   </select>
                 </div>
               </div>
@@ -147,7 +205,7 @@ function Stream() {
                   className={`
                     ${!isConnected ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                     : 'bg-[#3B82F6] text-black hover:bg-blue-400'}
-                    w-full px-8 py-3 rounded-xl bg-[#3B82F6] text-black font-medium text-lg hover:bg-blue-400 transition`}
+                    w-full cursor-pointer px-8 py-3 rounded-xl bg-[#3B82F6] text-black font-medium text-lg hover:bg-blue-400 transition`}
                 >
                   Create Stream
                 </button>
@@ -155,8 +213,62 @@ function Stream() {
 
             </motion.form>:
             <motion.form
+            className=""
+                onSubmit={handleBatchStream}
                 initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1}}}
              >
+                <div className="my-4">
+                  <label className="text-sm text-white/70">
+                    Total Amount (USDT)
+                  </label>
+                  <input
+                    value={amountEth}
+                    onChange={(e)=>setAmountEth(e.target.value)}
+                    type="number"
+                    placeholder="1000"
+                    required
+                    className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                  />
+                </div>
+
+                <div className="my-4">
+                  <label className="text-sm text-white/70">
+                    message
+                  </label>
+                  <textarea
+                    value={message}
+                    onChange={(e)=>setMessage(e.target.value)}
+                    placeholder="SALARY FOR 2026"
+                    maxLength={100}
+                    required
+                    className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                  />
+                </div>
+
+                <div className="">
+                  <label className="text-sm text-white/70">
+                    Duration
+                  </label>
+                  <div className="flex mt-2 space-x-2">
+                    <input
+                      value={duration}
+                      onChange={(e)=>setDuration(e.target.value)}
+                      type="number"
+                      placeholder="30"
+                      required
+                      className="w-2/3 rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                    />
+                    <select
+                      value={UintOfTime} onChange={handleOptionChange} required
+                      className="w-1/3 rounded-xl bg-[#1D2637] border border-white/10 px-3 py-3 text-white focus:outline-none"
+                    >
+                      <option disabled value="">Unit of Time</option>
+                      <option value="Hours">Hours</option>
+                      <option value="Days">Days</option>
+                      <option value="Months">Months</option>
+                    </select>
+                  </div>
+                </div>
                 {recipients.map((recipient, index) => (
                   <div
                     key={index}
@@ -232,7 +344,7 @@ function Stream() {
                     className={`
                        ${!isConnected ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                     : 'bg-[#3B82F6] text-black hover:bg-blue-400'}
-                      w-full px-8 py-3 rounded-xl bg-[#3B82F6] text-black font-medium text-lg hover:bg-blue-400 transition`}
+                      w-full cursor-pointer px-8 py-3 rounded-xl bg-[#3B82F6] text-black font-medium text-lg hover:bg-blue-400 transition`}
                   >
                     Create Stream
                   </button>
@@ -248,9 +360,20 @@ function Stream() {
             </h1>
             <div className=" transform transition duration-500 hover:-translate-y-1  text-white/70 bg-white/5 text-center backdrop-blur-lg p-10 rounded-3xl border border-white/10">
               <p className="text-xl pb-2 font-medium">MONEY STREAM</p>
-              <p className="text-2xl pb-2 font-bold text-[#3B82F6]">$ <span>0</span> USDT</p>
-              <p className="pb-2"> <span className="font-bold">TO: </span>{' '}<span className="font-extralight">0x1234...abcd</span></p>
-              <p><span className="font-bold">DURATION:</span> <span>2</span> <span>days</span></p>
+              <p className="text-2xl pb-2 font-bold text-[#3B82F6]">$ <span>{amountEth}</span> USDT</p>
+              <p className="pb-2"> 
+                <span className="font-bold">TO: 
+                </span>{' '}
+                <span className="font-extralight">
+                  { stream === "single" ? 
+                    `${singleBatchRecipient.slice(0,6)}...${singleBatchRecipient.slice(-4)}`
+                    : recipients.map(recipient => 
+                      `${recipient.address.slice(0,6)}...${recipient.address.slice(-4)}` 
+                    ).join(', ')
+                  }
+                </span>
+              </p>
+              <p><span className="font-bold">DURATION:</span> <span>{duration}</span> <span>{UintOfTime}</span></p>
             </div>
           </div>
           

@@ -2,11 +2,12 @@ import { Podcast, Home,BanknoteArrowDown,History,ArrowRightFromLine,Wallet,Chevr
 import { NavLink } from "react-router-dom";
 import {useWalletStore} from '../store/Connect'
 import WalletDetails from './WalletDetails';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 function Navbar() {
   const {connectWallet, walletAddress, disconnectWallet} = useWalletStore();
   const [showWalletDetails, setShowWallets] = useState(false)
+
   return (
     <nav className="w-full border-b ">
       <div className="max-w-7xl mx-auto flex items-center justify-between md:px-6 px-3 pb-6 pt-2">
