@@ -372,6 +372,33 @@ contract MantleStream is ReentrancyGuard {
         return 0;
     }
 
+    function getClaimableBalance(uint256 streamId) public view returns (uint256) {
+        Stream storage stream = streams[streamId];
+        require(stream.active, "stream inactive");
+        require(!stream.paused, "stream paused");
+        require(block.timestamp >= stream.startTime, "stream not started");
+
+        uint256 elapsed;
+
+        if (block.timestamp >= stream.endTime) {
+            elapsed = stream.duration;
+        } else {
+            elapsed = block.timestamp - stream.startTime;
+        }
+
+        uint256 totalEarned = elapsed * stream.flowRate;
+
+
+        for (uint256 i = 0; i < stream.recipient.length; i++) {
+            if (stream.recipient[i] == msg.sender) {
+                uint256 share = (totalEarned * stream.percentages[i]) / 10000;
+                return share - stream.amountWithdrawn[i];
+            }
+        }
+
+        return 0;
+    }
+
     function getClaimableFunds(
         uint256 _streamId
     ) external view returns (uint256) {

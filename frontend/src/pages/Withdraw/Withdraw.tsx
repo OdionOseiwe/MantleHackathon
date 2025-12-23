@@ -6,20 +6,22 @@ import {useWalletStore} from '../../store/Connect'
 import { Dot } from "lucide-react";
 import Skeleton from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
+import { Log } from "ethers";
 
 //DO: loop through the ids for the sender or recipient and display them on the 
 // cards for users to paste or put them directly in the input for the card 
 //  withdrawal button for recipient and cancel for sender 
 // loop through the array 
 function Withdraw() {
-  const [withdrawOptions, setWithdrawOptions] = useState({});
+  const [withdrawOptions, setWithdrawOptions] = useState<Record<number, string>>({});
   const [selectedStreamId, setSelectedStreamId] = useState<number | null>(null);
   const [amountToWithdraw, setAmountToWithdraw] = useState<number | null>(null);
   const [newRecipient, setNewRecipient] = useState<string>('');
   const [transferAmount, setTransferAmount] = useState<number | null>(null);
   const [transferRecipient, setTransferRecipient] = useState<string>('');
-  const [arrayOfRecipientStreams, setArrayOfRecipientStreams] = useState<number[]>([]);
-  const [arrayOfSenderStreams, setArrayOfSenderStreams] = useState<number[]>([]);
+  const [arrayOfRecipientStreams, setArrayOfRecipientStreams] = useState<any[]>([]);
+  const [arrayOfSenderStreams, setArrayOfSenderStreams] = useState<any[]>([]);
+  const [timeLeft, setTimeLeft] = useState({ h: 0, m: 0, s: 0 });
 
   const handleOptionChange = (streamId:number, option:string) => {
     setWithdrawOptions(prev => ({
@@ -37,28 +39,112 @@ function Withdraw() {
     getStreamsByRecipient, 
     streamsBySender,
     streams,
-    stream,
+    getArrayOfStreamsBySender,
   } = useWalletStore();
 
   const isConnected = Boolean(walletAddress);
 
-  const populateRecipientAndSenderStreams = async() =>{
-    
-    if(streamsBySender.length > 0 ){
-      for (const streamId of streamsBySender) {
-        await streams(streamId);
-        setArrayOfSenderStreams(prev => ([...prev, stream]));
-      }
-    }
-  }
+  const populateRecipientAndSenderStreams = async () => {
+    if (!walletAddress) return;
 
-  useEffect(()=>{
+    // Sender streams
+    if (streamsBySender.length > 0) {
+      const sendersStreams = await Promise.all(
+        streamsBySender.map(async (id) => {
+        const stream = await streams(id);
+        const arrayForSenderResult = await getArrayOfStreamsBySender(id);
+
+        // ensure we have an array result before destructuring (safe fallback if function returns void)
+        const safeArray: any[] = Array.isArray(arrayForSenderResult) ? arrayForSenderResult : [[], [], []];
+        const [SenderRes = [], amountRes = [], statusRes = []] = safeArray;
+
+        const arrayForSender = {
+          recipient: SenderRes?.[0] ?? '',
+          amount: amountRes?.[0]?.toString ? amountRes[0].toString() : (amountRes?.[0] ?? '0'), // BigInt → string or fallback
+          status: statusRes?.[0]?.toString ? statusRes[0].toString() : (statusRes?.[0] ?? '0'),
+        };
+        return {
+          ...stream,
+          id, // add id to the stream object
+          arrayForSender,
+        };
+        })
+      );
+      setArrayOfSenderStreams(sendersStreams);
+    }
+
+    // Recipient streams
+    if (streamsByRecipient.length > 0) {
+      const recipientStreams = await Promise.all(
+        streamsByRecipient.map(async (id) => {
+        const stream = await streams(id);
+        const arrayForRecipientResult = await getArrayOfStreamsBySender(id);
+
+        // ensure we have an array result before destructuring (safe fallback if function returns void)
+        const safeArray: any[] = Array.isArray(arrayForRecipientResult) ? arrayForRecipientResult : [[], [], []];
+        const [recipientRes = [], amountRes = [], statusRes = []] = safeArray;
+
+        const arrayForRecipient = {
+          recipient: recipientRes?.[0] ?? '',
+          amount: amountRes?.[0], // BigInt → string or fallback
+          status: statusRes?.[0],
+        };
+        return {
+          ...stream,
+          id, // add id to the stream object
+          arrayForRecipient,
+        };
+        })
+      );
+      setArrayOfRecipientStreams(recipientStreams);
+    }
+  };
+
+  useEffect(() => {
+    if (!walletAddress) return;
     getStreamsBySender(walletAddress);
     getStreamsByRecipient(walletAddress);
-    populateRecipientAndSenderStreams();
-  },[walletAddress])
-
+  }, [walletAddress]);
   
+  useEffect(() => {
+    if (
+      streamsBySender.length === 0 &&
+      streamsByRecipient.length === 0
+    ) return;
+  
+    populateRecipientAndSenderStreams();
+  }, [streamsBySender, streamsByRecipient]);
+
+  useEffect(() => {
+    if (!arrayOfSenderStreams.length) return;
+    const endMs = parseInt(arrayOfSenderStreams[0]?.[6].toString(), 10) * 1000;
+    if (Number.isNaN(endMs)) return;
+    
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const diff = endMs - now;
+
+      if (diff <= 0) {
+        setTimeLeft({ h: 0, m: 0, s: 0 });
+        clearInterval(interval);
+        return;
+      }
+
+      setTimeLeft({
+        h: Math.floor(diff / (1000 * 60 * 60)),
+        m: Math.floor((diff / (1000 * 60)) % 60),
+        s: Math.floor((diff / 1000) % 60),
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [arrayOfSenderStreams]);
+
+  console.log("array for recipient",arrayOfRecipientStreams);
+  console.log("array for streams",arrayOfSenderStreams);
+  console.log("number",parseInt(arrayOfSenderStreams[0]?.[6].toString(), 10));
+  console.log("count down...",timeLeft);
+
   return (
     <motion.div 
     initial={{opacity:0, y: 50}} animate={{opacity:1, y:0, transition: { duration: 1 }}}
@@ -119,14 +205,14 @@ function Withdraw() {
                     ) : (
                       <>
                         {
-                          streamsByRecipient.map((incomingStream,index)=>{
+                            arrayOfRecipientStreams.map((streamData:any)=>{
                             return (
-                              <div key={index} className="w-fit bg-white/5 backdrop-blur-lg p-6 md:p-10 rounded-3xl border border-white/10 text-white/70">
+                              <div key={streamData.id} className="w-fit bg-white/5 backdrop-blur-lg p-6 md:p-10 rounded-3xl border border-white/10 text-white/70">
                                 <p className="text-xl  mb-4  font-bold text-[#3B82F6]">Incoming Streams</p>
                                 <div className="flex mb-6 mx-auto w-fit rounded-full overflow-hidden border border-white/10">
                                   <button
-                                    onClick={() => handleOptionChange(incomingStream, "withdraw")}
-                                    className={`${withdrawOptions[incomingStream] === "withdraw"
+                                    onClick={() => handleOptionChange(streamData.id, "withdraw")}
+                                    className={`${withdrawOptions[streamData.id] === "withdraw"
                                       ? "bg-[#3B82F6] text-black"
                                       : "text-white/60"} px-4 py-1 font-medium`}
                                   >
@@ -134,8 +220,8 @@ function Withdraw() {
                                   </button>                               
 
                                   <button
-                                    onClick={() => handleOptionChange(incomingStream, "redirect")}
-                                    className={`${withdrawOptions[incomingStream] === "redirect"
+                                    onClick={() => handleOptionChange(streamData.id, "redirect")}
+                                    className={`${withdrawOptions[streamData.id] === "redirect"
                                       ? "bg-[#3B82F6] text-black"
                                       : "text-white/60"} px-4 py-1 font-medium`}
                                   >
@@ -143,8 +229,8 @@ function Withdraw() {
                                   </button>                               
 
                                   <button
-                                    onClick={() => handleOptionChange(incomingStream, "transfer")}
-                                    className={`${withdrawOptions[incomingStream] === "transfer"
+                                    onClick={() => handleOptionChange(streamData.id, "transfer")}
+                                    className={`${withdrawOptions[streamData.id] === "transfer"
                                       ? "bg-[#3B82F6] text-black"
                                       : "text-white/60"} px-4 py-1 font-medium`}
                                   >
@@ -154,12 +240,12 @@ function Withdraw() {
 
                                 <div className="flex justify-between mb-4 text-sm">
                                   <div>
-                                    <p>
-                                      <span className="font-semibold">FROM:</span>{" "}
-                                      0x4fg...abxd
+                                    <p className="text-white/70">
+                                      <span className="font-bold text-white/50">FROM:</span>{" "}
+                                      {streamData[1].slice(0,6)} ...{streamData[1].slice(-4)}
                                     </p>
-                                    <p>
-                                      <span className="font-semibold">TO:</span>{" "}
+                                    <p className="text-white/70">
+                                      <span className="font-bold text-white/50">TO:</span>{" "}
                                       0x4fg...cbbd
                                     </p>
                                   </div>
@@ -167,6 +253,8 @@ function Withdraw() {
                                     4.14 ETH
                                   </p>
                                 </div>
+
+                                <p className="my-3 text-white/70"> <span className="font-bold text-white/50">MESSAGE: {' '}</span>{streamData[2]}</p>  
                                 <label className="text-sm text-white/70">
                                         stream ID
                                   </label>
@@ -174,7 +262,7 @@ function Withdraw() {
                                     onChange={(e) => setSelectedStreamId(Number(e.target.value))}
                                     type="number"
                                     placeholder=""
-                                    defaultValue={incomingStream}
+                                    defaultValue={streamData.id}
                                     disabled
                                     className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                                   />
@@ -184,7 +272,7 @@ function Withdraw() {
                                 <p className="text-xs mb-5 text-white/50">
                                   Ends in 4h 29m 40s
                                 </p>
-                                { withdrawOptions[incomingStream] === "withdraw" &&
+                                { withdrawOptions[streamData.id] === "withdraw" &&
                                   <motion.form 
                                   initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1 }}}
                                   action="">
@@ -207,7 +295,7 @@ function Withdraw() {
                                     </button>
                                   </motion.form>
                                 }
-                                { withdrawOptions[incomingStream] === "redirect" &&
+                                { withdrawOptions[streamData.id] === "redirect" &&
                                 <motion.form 
                                     initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1 }}}
                                 action="">
@@ -229,7 +317,7 @@ function Withdraw() {
                                     Redirect
                                   </button>
                                 </motion.form>
-                              }  { withdrawOptions[incomingStream] === "transfer" &&
+                              }  { withdrawOptions[streamData.id] === "transfer" &&
                                   <motion.form 
                                   initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1}}}
                                   action="">
@@ -262,33 +350,34 @@ function Withdraw() {
                                 }
                               </div> 
                             )
-                          })
+                            })
                           
                         }
                               
                         {
-                          streamsBySender.map((outgoingStream, index)=>{
+                          arrayOfSenderStreams.map((outgoingStream, index)=>{
                             return (
-                              <div key={outgoingStream} className="bg-white/5 backdrop-blur-lg p-6 md:p-10 w-fit rounded-3xl border border-white/10 text-white/70">
+                              <div key={outgoingStream.id} className="bg-white/5 backdrop-blur-lg p-6 md:p-10 w-fit rounded-3xl border border-white/10 text-white/70">
                                     <p className="text-xl mb-4 font-bold text-[#3B82F6]">
                                     Outgoing Streams</p>
                                 <div className="flex justify-between mb-4 text-sm">
                                   <div>
                                     <p>
                                       <span className="font-semibold">FROM:</span>{" "}
-                                      0x4fg...abxd
+                                      {outgoingStream[1].slice(0,6)} ...{outgoingStream[1].slice(-4)}
                                     </p>
                                     <p>
                                       <span className="font-semibold">TO:</span>{" "}
-                                      0x4fg...cbbd
+                                      {outgoingStream.arrayForSender.recipient.slice(0,6)}...{outgoingStream.arrayForSender.recipient.slice(-4)}
                                     </p>
                                   </div>
                                   <p className="font-semibold text-white">
-                                    4.14 ETH
+                                    {parseInt(outgoingStream.arrayForSender.amount, 10).toString()} ETH
                                   </p>
                                 </div>
+                                <p className="my-3 text-white/70"> <span className="font-bold text-white/50">MESSAGE: {' '}</span>{outgoingStream[2]}</p>  
                                  
-                                <progress value={32} max={100} className="h-2 mt-8 rounded-2xl w-full"></progress>
+                                <progress value={32} max={100} className="h-2 rounded-2xl w-full"></progress>
 
                                 <p className="text-xs mb-5 text-white/50">
                                   Ends in 4h 29m 40s
@@ -302,7 +391,7 @@ function Withdraw() {
                                   <input
                                     type="number"
                                     placeholder=""
-                                    defaultValue={outgoingStream}
+                                    defaultValue={outgoingStream.id}
                                     disabled
                                     className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                                   />
