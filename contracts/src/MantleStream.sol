@@ -344,6 +344,7 @@ contract MantleStream is ReentrancyGuard {
             require(success, "transfer failed");
         }
 
+        delete streams[_streamId];
         emit StreamCancelled(_streamId);
     }
 

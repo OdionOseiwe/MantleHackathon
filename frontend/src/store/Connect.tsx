@@ -28,6 +28,7 @@ interface WalletState {
   getArrayOfStreamsBySender: (address:number| null) => Promise<void>;
   cancelStream: (streamId:number) => Promise<void>;
   streams: (id:number) => Promise<void>;
+  getClaimableBalance: (streamId:number) => Promise<string>;
 
   createStream: (
     recipient: string,
@@ -181,7 +182,7 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
       }
 
       // ----- approving Mock USDT -----
-      set({ isProcessing: true, status: "Approving USDT..." });
+      set({status: "Approving USDT..." });
       
       // always approve the right decimals for a token 
       const usdt = new ethers.Contract(Mock_USDT_address, MockUSDT, signer);
@@ -191,7 +192,7 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
       );
       await approveTx.wait();
 
-      set({ isProcessing: true, status: "Creating stream..." });
+      set({status: "Creating stream..." });
 
       // ---- creating stream -----
       const contract = new ethers.Contract(
@@ -271,7 +272,7 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
       }
     
       // ----- approving Mock USDT -----
-      set({ isProcessing: true, status: "Approving USDT..." });
+      set({ status: "Approving USDT..." });
 
       // always approve the right decimals for a token 
       const usdt = new ethers.Contract(Mock_USDT_address, MockUSDT, signer);
@@ -282,7 +283,7 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
       await approveTx.wait();
 
       // ---- creating stream ----
-      set({ isProcessing: true, status: "Creating stream..." });
+      set({ status: "Creating stream..." });
 
       const contract = new ethers.Contract(
         Mantle_stream_address,
@@ -477,7 +478,7 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
         StreamABI,
         signer
       );
-      set({ isProcessing: true, status: "Cancelling stream..." });
+      set({ status: "Cancelling stream..." });
 
       const tx = await contract.cancelStream(streamId);
 
@@ -491,6 +492,41 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
       throw error;
     } finally {
       set({ isProcessing: false });
+    }
+  },
+
+  getClaimableBalance: async (streamId:number) => {
+    const {
+      provider,
+      signer,
+      setStatus,
+    } = get();
+
+    if (!provider || !signer) {
+      setStatus("Please connect your wallet.");
+      return "0";
+    }
+
+    try {
+      const code = await provider.getCode(Mantle_stream_address);
+      if (!code || code === "0x") {
+        setStatus("Contract not deployed on this network.");
+        return "0";
+      }
+
+      const read = new ethers.Contract(
+        Mantle_stream_address,
+        StreamABI,
+        signer
+      );
+
+      const claimableBalance = await read.getClaimableBalance(streamId);
+      return claimableBalance; // BigInt to string with 6 decimals
+    } catch (error:any) {
+      setStatus(
+        error?.shortMessage || error?.message || "Transaction failed"
+      );
+      throw error;
     }
   },
 

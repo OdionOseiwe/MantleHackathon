@@ -6,7 +6,7 @@ import {useWalletStore} from '../../store/Connect'
 import { Dot } from "lucide-react";
 import Skeleton from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
-import { Log } from "ethers";
+import { ethers } from "ethers";
 
 //DO: loop through the ids for the sender or recipient and display them on the 
 // cards for users to paste or put them directly in the input for the card 
@@ -21,7 +21,12 @@ function Withdraw() {
   const [transferRecipient, setTransferRecipient] = useState<string>('');
   const [arrayOfRecipientStreams, setArrayOfRecipientStreams] = useState<any[]>([]);
   const [arrayOfSenderStreams, setArrayOfSenderStreams] = useState<any[]>([]);
-  const [timeLeft, setTimeLeft] = useState({ h: 0, m: 0, s: 0 });
+  const [timeLeft, setTimeLeft] = useState<Record<number, {
+    d: number;
+    h: number;
+    m: number;
+    s: number;
+  }>>({});
 
   const handleOptionChange = (streamId:number, option:string) => {
     setWithdrawOptions(prev => ({
@@ -40,9 +45,13 @@ function Withdraw() {
     streamsBySender,
     streams,
     getArrayOfStreamsBySender,
+    getClaimableBalance,
+    cancelStream
   } = useWalletStore();
 
   const isConnected = Boolean(walletAddress);
+  const allStreams = [...arrayOfSenderStreams, ...arrayOfRecipientStreams];
+
 
   const populateRecipientAndSenderStreams = async () => {
     if (!walletAddress) return;
@@ -79,6 +88,7 @@ function Withdraw() {
         streamsByRecipient.map(async (id) => {
         const stream = await streams(id);
         const arrayForRecipientResult = await getArrayOfStreamsBySender(id);
+        const claimableBalance = await getClaimableBalance(id);
 
         // ensure we have an array result before destructuring (safe fallback if function returns void)
         const safeArray: any[] = Array.isArray(arrayForRecipientResult) ? arrayForRecipientResult : [[], [], []];
@@ -86,13 +96,14 @@ function Withdraw() {
 
         const arrayForRecipient = {
           recipient: recipientRes?.[0] ?? '',
-          amount: amountRes?.[0], // BigInt → string or fallback
+          amount: amountRes?.[0],
           status: statusRes?.[0],
         };
         return {
           ...stream,
           id, // add id to the stream object
           arrayForRecipient,
+          claimableBalance,
         };
         })
       );
@@ -116,34 +127,51 @@ function Withdraw() {
   }, [streamsBySender, streamsByRecipient]);
 
   useEffect(() => {
-    if (!arrayOfSenderStreams.length) return;
-    const endMs = parseInt(arrayOfSenderStreams[0]?.[6].toString(), 10) * 1000;
-    if (Number.isNaN(endMs)) return;
-    
+    if (!allStreams.length) return;
+
     const interval = setInterval(() => {
       const now = Date.now();
-      const diff = endMs - now;
 
-      if (diff <= 0) {
-        setTimeLeft({ h: 0, m: 0, s: 0 });
-        clearInterval(interval);
-        return;
-      }
+      setTimeLeft(prev => {
+        const updated = { ...prev };
 
-      setTimeLeft({
-        h: Math.floor(diff / (1000 * 60 * 60)),
-        m: Math.floor((diff / (1000 * 60)) % 60),
-        s: Math.floor((diff / 1000) % 60),
+        for (const stream of allStreams) {
+          const endSeconds = stream?.[6]; // blockchain timestamp (seconds)
+
+          if (!endSeconds) continue;
+
+          const endMs = Number(endSeconds) * 1000;
+          const diff = endMs - now;
+
+          if (diff <= 0) {
+            updated[stream.id] = {d:0 ,h: 0, m: 0, s: 0 };
+            continue;
+          }
+
+          updated[stream.id] = {
+            d: Math.floor(diff / (1000 * 60 * 60 * 24)),
+            h: Math.floor((diff / (1000 * 60 * 60)) % 24),
+            m: Math.floor((diff / (1000 * 60)) % 60),
+            s: Math.floor((diff / 1000) % 60),
+          };
+
+        }
+
+        return updated;
       });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [arrayOfSenderStreams]);
+  }, [arrayOfSenderStreams, arrayOfRecipientStreams]);
 
-  console.log("array for recipient",arrayOfRecipientStreams);
-  console.log("array for streams",arrayOfSenderStreams);
-  console.log("number",parseInt(arrayOfSenderStreams[0]?.[6].toString(), 10));
-  console.log("count down...",timeLeft);
+  const handleCancelStream = (streamId:number) =>  async (e:FocusEvent) =>{
+    e.preventDefault();
+    try {
+      await cancelStream(streamId);
+      getStreamsBySender(walletAddress!);
+    } catch (error: any) {
+      console.error("Error cancelling stream:", error);}
+  };
 
   return (
     <motion.div 
@@ -250,7 +278,7 @@ function Withdraw() {
                                     </p>
                                   </div>
                                   <p className="font-semibold text-white">
-                                    4.14 ETH
+                                    {Math.ceil(Number(ethers.formatUnits(streamData.claimableBalance, 6)))} USDT
                                   </p>
                                 </div>
 
@@ -269,9 +297,14 @@ function Withdraw() {
                                  
                                 <progress value={32} max={100} className="h-2 mt-8 rounded-2xl w-full"></progress>
 
-                                <p className="text-xs mb-5 text-white/50">
-                                  Ends in 4h 29m 40s
+                                <p className="text-xs text-white/50">
+                                  Ends in{" "}
+                                  {timeLeft[streamData.id]?.d ?? 0}d{" "}
+                                  {timeLeft[streamData.id]?.h ?? 0}h{" "}
+                                  {timeLeft[streamData.id]?.m ?? 0}m{" "}
+                                  {timeLeft[streamData.id]?.s ?? 0}s
                                 </p>
+
                                 { withdrawOptions[streamData.id] === "withdraw" &&
                                   <motion.form 
                                   initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1 }}}
@@ -372,17 +405,23 @@ function Withdraw() {
                                     </p>
                                   </div>
                                   <p className="font-semibold text-white">
-                                    {parseInt(outgoingStream.arrayForSender.amount, 10).toString()} ETH
+                                    {ethers.formatUnits(outgoingStream[4], 6).toString()} USDT
                                   </p>
                                 </div>
                                 <p className="my-3 text-white/70"> <span className="font-bold text-white/50">MESSAGE: {' '}</span>{outgoingStream[2]}</p>  
                                  
                                 <progress value={32} max={100} className="h-2 rounded-2xl w-full"></progress>
 
-                                <p className="text-xs mb-5 text-white/50">
-                                  Ends in 4h 29m 40s
+                                <p className="text-xs text-white/50">
+                                  Ends in{" "}
+                                                                    
+                                  {timeLeft[outgoingStream.id]?.d ?? 0}d{" "}
+                                  {timeLeft[outgoingStream.id]?.h ?? 0}h{" "}
+                                  {timeLeft[outgoingStream.id]?.m ?? 0}m{" "}
+                                  {timeLeft[outgoingStream.id]?.s ?? 0}s
                                 </p>
                                   <motion.form 
+                                  onSubmit={handleCancelStream(outgoingStream.id)}
                                   initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1 }}}
                                   action="">
                                   <label className="text-sm text-white/70">
@@ -395,11 +434,11 @@ function Withdraw() {
                                     disabled
                                     className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                                   />
-                                    <button
+                                    <button 
                                       className={`
                                          ${!walletAddress ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                                         : 'bg-[#3B82F6] text-black hover:bg-blue-400'}
-                                        mt-8 w-full px-6 py-3 rounded-xl bg-[#3B82F6] text-black font-medium text-lg hover:bg-blue-400 transition`}
+                                        mt-8 w-full px-6 py-3 rounded-xl bg-[#3B82F6] text-black font-medium cursor-pointer text-lg hover:bg-blue-400 transition`}
                                     >
                                     Cancel Stream
                                     </button>
