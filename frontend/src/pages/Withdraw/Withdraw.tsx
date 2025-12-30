@@ -201,11 +201,16 @@ function Withdraw() {
   const handleTransfer = (streamId:number) =>  async (e:FormEvent<HTMLFormElement>) => {
     e.preventDefault();
      try {
-      await transferFromStream(Number(streamId) , Number(transferAmount), String(transferRecipient));
+            console.log('transferFromStream called with:', streamId, transferAmount, transferRecipient);
+      await transferFromStream(Number(streamId) , String(transferAmount), String(transferRecipient));
+      
     } catch (error) {
       console.log(error); 
     }
   }
+
+  console.log(arrayOfRecipientStreams);
+  console.log(arrayOfSenderStreams);
   
   return (
     <motion.div 
@@ -314,7 +319,7 @@ function Withdraw() {
                                     </p>
                                     <p className="text-white/70">
                                       <span className="font-bold text-white/50">TO:</span>{" "}
-                                      0x4fg...cbbd
+                                      {streamData.arrayForRecipient.recipient.slice(0,6)}...{streamData.arrayForRecipient.recipient.slice(-4)}
                                     </p>
                                   </div>
                                   <p className="font-semibold text-white">
@@ -402,18 +407,19 @@ function Withdraw() {
                                   onSubmit={handleTransfer(streamData.id)}
                                   initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1}}}
                                   action="">
-                                    <label className="text-sm text-white/70">
+                                    <label className="text-sm  text-white/70">
                                         Total Amount (USDT)
                                     </label>
                                       <input
                                         onChange={(e) => setTransferAmount(Number(e.target.value))}
                                         type="number"
+                                        step='any'
                                         placeholder="1000"
-                                        className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+                                        className="mt-2 mb-4 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                                       />
 
-                                    <label className="text-sm text-white/70">
-                                        New Recipient
+                                    <label className="text-sm  text-white/70">
+                                        Recipient address
                                     </label>
                                       <input
                                         onChange={(e) => setTransferRecipient(e.target.value)}

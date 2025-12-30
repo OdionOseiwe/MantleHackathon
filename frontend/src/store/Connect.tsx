@@ -29,7 +29,7 @@ interface WalletState {
   cancelStream: (streamId:number) => Promise<void>;
   withdrawStream: (streamId:number, amountEth:string) => Promise<void>;
   redirectStream: (streamId:number, newRecipient:string) => Promise<void>;
-  transferFromStream: (streamId:number, amount:number, recipient:string) => Promise<void>;
+  transferFromStream: (streamId:number, amountEth:string, recipient:string) => Promise<void>;
   streams: (id:number) => Promise<void>;
   getClaimableBalance: (streamId:number) => Promise<string>;
 
@@ -584,7 +584,7 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
     }
   },
 
-  transferFromStream: async (streamId:number, amount:number,  recipient:string) => {
+  transferFromStream: async (streamId:number, amountEth:number,  recipient:string) => {
     const {
       provider,
       signer,
@@ -610,8 +610,9 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
       );
 
       set({ status: "Transferring..." });
+      const amountWei = ethers.parseUnits(amountEth, 6);
 
-      const tx = await contract.transferClaimsToAddress(streamId, amount, recipient);
+      const tx = await contract.transferClaimsToAddress(streamId, amountWei, recipient);
 
       await tx.wait();
 
