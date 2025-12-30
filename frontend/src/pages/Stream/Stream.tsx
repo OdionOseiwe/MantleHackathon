@@ -59,7 +59,7 @@ function Stream() {
         }
         const durationInSeconds = toSeconds(Number(duration),UintOfTime);
         await createStream(singleBatchRecipient, amountEth, durationInSeconds,message);
-        setSingleBatchRecipient('');
+        setRecipients([]);
         setAmountEth('');
         setUintOfTime('');
         setDuration('');
@@ -82,6 +82,11 @@ function Stream() {
         const percentages = recipients.map(r => r.percentage);
 
         await createMultipleStream(addresses, durationInSeconds,amountEth,percentages,message);
+        setSingleBatchRecipient('');
+        setAmountEth('');
+        setUintOfTime('');
+        setDuration('');
+        setMessage('')
       }catch(error){
         console.log(error);
       }

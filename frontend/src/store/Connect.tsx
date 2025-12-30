@@ -27,6 +27,9 @@ interface WalletState {
   getStreamsByRecipient:(address:string| null) => Promise<void>;
   getArrayOfStreamsBySender: (address:number| null) => Promise<void>;
   cancelStream: (streamId:number) => Promise<void>;
+  withdrawStream: (streamId:number, amountEth:string) => Promise<void>;
+  redirectStream: (streamId:number, newRecipient:string) => Promise<void>;
+  transferFromStream: (streamId:number, amount:number, recipient:string) => Promise<void>;
   streams: (id:number) => Promise<void>;
   getClaimableBalance: (streamId:number) => Promise<string>;
 
@@ -485,6 +488,134 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
       await tx.wait();
 
       setStatus("Stream cancelled successfully");
+    } catch (error: any) {
+      setStatus(
+        error?.shortMessage || error?.message || "Transaction failed"
+      );
+      throw error;
+    } finally {
+      set({ isProcessing: false });
+    }
+  },
+
+  withdrawStream: async (streamId:number, amountEth:string) => {
+    const {
+      provider,
+      signer,
+      setStatus,
+    } = get();
+
+    if (!provider || !signer) {
+      setStatus("Please connect your wallet.");
+      return;
+    }
+
+    try {
+      const code = await provider.getCode(Mantle_stream_address);
+      if (!code || code === "0x") {
+        setStatus("Contract not deployed on this network.");
+        return;
+      }
+      
+      const contract = new ethers.Contract(
+        Mantle_stream_address,
+        StreamABI,
+        signer
+      );
+
+      const amountWei = ethers.parseUnits(amountEth, 6);
+
+      set({ status: "Withdrawing from stream..." });
+
+      const tx = await contract.withdrawFromStream(streamId, amountWei);
+
+      await tx.wait();
+
+      setStatus("Withdrawal successful");
+    } catch (error: any) {
+      setStatus(
+        error?.shortMessage || error?.message || "Transaction failed"
+      );
+      throw error;
+    } finally {
+      set({ isProcessing: false });
+    }
+  },
+
+  redirectStream: async (streamId:number, newRecipient:string) => {
+    const {
+      provider,
+      signer,
+      setStatus,
+    } = get();
+
+    if (!provider || !signer) {
+      setStatus("Please connect your wallet.");
+      return;
+    }
+
+    try {
+      const code = await provider.getCode(Mantle_stream_address);
+      if (!code || code === "0x") {
+        setStatus("Contract not deployed on this network.");
+        return;
+      }
+      
+      const contract = new ethers.Contract(
+        Mantle_stream_address,
+        StreamABI,
+        signer
+      );
+
+      set({ status: "Redirecting stream..." });
+
+      const tx = await contract.redirectClaimsRecipient(streamId, newRecipient);
+
+      await tx.wait();
+
+      setStatus("Stream redirected successfully");
+    } catch (error: any) {
+      setStatus(
+        error?.shortMessage || error?.message || "Transaction failed"
+      );
+      throw error;
+    } finally {
+      set({ isProcessing: false });
+    }
+  },
+
+  transferFromStream: async (streamId:number, amount:number,  recipient:string) => {
+    const {
+      provider,
+      signer,
+      setStatus,
+    } = get();
+
+    if (!provider || !signer) {
+      setStatus("Please connect your wallet.");
+      return;
+    }
+
+    try {
+      const code = await provider.getCode(Mantle_stream_address);
+      if (!code || code === "0x") {
+        setStatus("Contract not deployed on this network.");
+        return;
+      }
+      
+      const contract = new ethers.Contract(
+        Mantle_stream_address,
+        StreamABI,
+        signer
+      );
+
+      set({ status: "Transferring..." });
+
+      const tx = await contract.transferClaimsToAddress(streamId, amount, recipient);
+
+      await tx.wait();
+
+      setStatus("amount transferred successfully");
     } catch (error: any) {
       setStatus(
         error?.shortMessage || error?.message || "Transaction failed"

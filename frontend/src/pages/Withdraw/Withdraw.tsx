@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Navbar from "../../components/Navbar";
 import { motion} from 'framer-motion'
 import { NavLink } from "react-router-dom";
@@ -46,7 +46,10 @@ function Withdraw() {
     streams,
     getArrayOfStreamsBySender,
     getClaimableBalance,
-    cancelStream
+    cancelStream,
+    withdrawStream,
+    redirectStream,
+    transferFromStream,
   } = useWalletStore();
 
   const isConnected = Boolean(walletAddress);
@@ -69,7 +72,7 @@ function Withdraw() {
 
         const arrayForSender = {
           recipient: SenderRes?.[0] ?? '',
-          amount: amountRes?.[0]?.toString ? amountRes[0].toString() : (amountRes?.[0] ?? '0'), // BigInt → string or fallback
+          amount: ethers.formatUnits(amountRes[0], 6),
           status: statusRes?.[0]?.toString ? statusRes[0].toString() : (statusRes?.[0] ?? '0'),
         };
         return {
@@ -84,7 +87,8 @@ function Withdraw() {
 
     // Recipient streams
     if (streamsByRecipient.length > 0) {
-      const recipientStreams = await Promise.all(
+      try {
+        const recipientStreams = await Promise.all(
         streamsByRecipient.map(async (id) => {
         const stream = await streams(id);
         const arrayForRecipientResult = await getArrayOfStreamsBySender(id);
@@ -106,8 +110,12 @@ function Withdraw() {
           claimableBalance,
         };
         })
-      );
-      setArrayOfRecipientStreams(recipientStreams);
+        );
+        setArrayOfRecipientStreams(recipientStreams);
+      } catch (error) {
+        console.log("Error populating recipient streams:", error);
+      }
+      
     }
   };
 
@@ -164,15 +172,41 @@ function Withdraw() {
     return () => clearInterval(interval);
   }, [arrayOfSenderStreams, arrayOfRecipientStreams]);
 
-  const handleCancelStream = (streamId:number) =>  async (e:FocusEvent) =>{
+  const handleCancelStream = (streamId:number) =>  async (e:FormEvent<HTMLFormElement>) =>{
     e.preventDefault();
     try {
       await cancelStream(streamId);
-      getStreamsBySender(walletAddress!);
     } catch (error: any) {
       console.error("Error cancelling stream:", error);}
   };
 
+  const handleWithdraw =(streamId:number) => async (e:FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    try {
+      await withdrawStream(Number(streamId), String(amountToWithdraw));
+    } catch (error) {
+      console.log(error); 
+    }
+  };
+
+  const handleRedirect = (streamId:number) =>  async (e:FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+     try {
+      await redirectStream(Number(streamId), String(newRecipient));
+    } catch (error) {
+      console.log(error); 
+    }
+  };
+
+  const handleTransfer = (streamId:number) =>  async (e:FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+     try {
+      await transferFromStream(Number(streamId) , Number(transferAmount), String(transferRecipient));
+    } catch (error) {
+      console.log(error); 
+    }
+  }
+  
   return (
     <motion.div 
     initial={{opacity:0, y: 50}} animate={{opacity:1, y:0, transition: { duration: 1 }}}
@@ -205,7 +239,7 @@ function Withdraw() {
               {streamsBySender.length + streamsByRecipient.length}
             </p>
             <p className="text-white/50 text-sm">
-              Active Streams
+              Streams
             </p>
           </div>
 
@@ -218,12 +252,13 @@ function Withdraw() {
             </p>
           </div>
         </div>
+        <p className="text-center text-3xl font-bold mt-8 text-[#3B82F6]">Streams</p>
           <div className="transform transition duration-500 hover:-translate-y-1 grid md:grid-cols-2  gap-8 mt-10">
             {
               isProcessing ? (
                 <>
-                  <Skeleton height={150} className="rounded-3xl"/>
-                  <Skeleton height={150} className="rounded-3xl"/>
+                  <Skeleton baseColor={'#3B82F6'}  height={150} className="rounded-3xl"/>
+                  <Skeleton baseColor={'#3B82F6'}   height={150} className="rounded-3xl"/>
                 </>
               ) : (
                 <>
@@ -236,7 +271,12 @@ function Withdraw() {
                             arrayOfRecipientStreams.map((streamData:any)=>{
                             return (
                               <div key={streamData.id} className="w-fit bg-white/5 backdrop-blur-lg p-6 md:p-10 rounded-3xl border border-white/10 text-white/70">
-                                <p className="text-xl  mb-4  font-bold text-[#3B82F6]">Incoming Streams</p>
+                                <div className="flex justify-between mb-4">
+                                  <p className="text-xl font-bold text-[#3B82F6]">Incoming Streams</p>
+                                  <span className={`px-5 py-1.5 rounded-full text-xs ${streamData[8] ?' bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400' } `}>
+                                    {streamData[8] === true ? "Active" : "Inactive"}
+                                  </span>
+                                </div>
                                 <div className="flex mb-6 mx-auto w-fit rounded-full overflow-hidden border border-white/10">
                                   <button
                                     onClick={() => handleOptionChange(streamData.id, "withdraw")}
@@ -251,7 +291,7 @@ function Withdraw() {
                                     onClick={() => handleOptionChange(streamData.id, "redirect")}
                                     className={`${withdrawOptions[streamData.id] === "redirect"
                                       ? "bg-[#3B82F6] text-black"
-                                      : "text-white/60"} px-4 py-1 font-medium`}
+                                      : "text-white/60"} px-4 py-1 border-x border-white/10 font-medium`}
                                   >
                                     REDIRECT
                                   </button>                               
@@ -278,7 +318,7 @@ function Withdraw() {
                                     </p>
                                   </div>
                                   <p className="font-semibold text-white">
-                                    {Math.ceil(Number(ethers.formatUnits(streamData.claimableBalance, 6)))} USDT
+                                    {Number(ethers.formatUnits(streamData.claimableBalance, 6))} USDT
                                   </p>
                                 </div>
 
@@ -297,7 +337,7 @@ function Withdraw() {
                                  
                                 <progress value={32} max={100} className="h-2 mt-8 rounded-2xl w-full"></progress>
 
-                                <p className="text-xs text-white/50">
+                                <p className="text-xs mb-4 text-white/50">
                                   Ends in{" "}
                                   {timeLeft[streamData.id]?.d ?? 0}d{" "}
                                   {timeLeft[streamData.id]?.h ?? 0}h{" "}
@@ -307,57 +347,66 @@ function Withdraw() {
 
                                 { withdrawOptions[streamData.id] === "withdraw" &&
                                   <motion.form 
+                                  onSubmit={handleWithdraw(streamData.id)}
                                   initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1 }}}
                                   action="">
                                     <label className="text-sm text-white/70">
                                         Total Amount (USDT)
                                     </label>
                                       <input
+                                        onChange={(e) => setAmountToWithdraw(Number(e.target.value))}
                                         type="number"
+                                        step='any'
                                         placeholder="1000"
                                         className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                                       />
 
                                     <button
+                                      disabled={!isConnected || !streamData[8]}
                                       className={`
-                                         ${!walletAddress ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                         ${!walletAddress || !streamData[8] ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                                         : 'bg-[#3B82F6] text-black hover:bg-blue-400'}
-                                        mt-8 w-full px-6 py-3 rounded-xl bg-[#3B82F6] text-black font-medium text-lg hover:bg-blue-400 transition`}
+                                        mt-8 w-full px-6 py-3 rounded-xl bg-[#3B82F6] text-black font-medium text-lg `}
                                     >
                                       Withdraw Funds
-                                    </button>
+                                     </button>
                                   </motion.form>
                                 }
                                 { withdrawOptions[streamData.id] === "redirect" &&
                                 <motion.form 
+                                onSubmit={handleRedirect(streamData.id)}
                                     initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1 }}}
                                 action="">
                                   <label className="text-sm text-white/70">
                                       New Recipient
                                   </label>
                                     <input
+                                      onChange={(e) => setNewRecipient(e.target.value)}
                                       type="text"
                                       placeholder="0xab...cd"
                                       className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                                     />
 
                                   <button
+                                    disabled={!isConnected || !streamData[8]}
                                     className={`
-                                       ${!isConnected ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                       ${!isConnected || !streamData[8]  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                                       : 'bg-[#3B82F6] text-black hover:bg-blue-400'}
-                                      mt-8 w-full px-6 py-3 rounded-xl bg-[#3B82F6] text-black font-medium text-lg hover:bg-blue-400 transition`}
+                                      mt-8 w-full px-6 py-3 rounded-xl bg-[#3B82F6] text-black font-medium text-lg `}
                                   >
                                     Redirect
                                   </button>
                                 </motion.form>
                               }  { withdrawOptions[streamData.id] === "transfer" &&
                                   <motion.form 
+                                  onSubmit={handleTransfer(streamData.id)}
                                   initial={{opacity:0}} animate={{opacity:1, transition: { duration: 1}}}
                                   action="">
                                     <label className="text-sm text-white/70">
                                         Total Amount (USDT)
                                     </label>
                                       <input
+                                        onChange={(e) => setTransferAmount(Number(e.target.value))}
                                         type="number"
                                         placeholder="1000"
                                         className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
@@ -367,15 +416,17 @@ function Withdraw() {
                                         New Recipient
                                     </label>
                                       <input
+                                        onChange={(e) => setTransferRecipient(e.target.value)}
                                         type="text"
                                         placeholder="0xab...cd"
                                         className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                                       />
                                     <button
+                                    disabled={!isConnected || !streamData[8]}
                                       className={`
-                                         ${!isConnected ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                         ${!isConnected || !streamData[8]  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                                         : 'bg-[#3B82F6] text-black hover:bg-blue-400'}
-                                        mt-8 w-full px-6 py-3 rounded-xl bg-[#3B82F6] text-black font-medium text-lg hover:bg-blue-400 transition`}
+                                        mt-8 w-full px-6 py-3 rounded-xl bg-[#3B82F6] text-black font-medium text-lg `}
                                     >
                                       Transfer
                                     </button>
@@ -391,8 +442,12 @@ function Withdraw() {
                           arrayOfSenderStreams.map((outgoingStream, index)=>{
                             return (
                               <div key={outgoingStream.id} className="bg-white/5 backdrop-blur-lg p-6 md:p-10 w-fit rounded-3xl border border-white/10 text-white/70">
-                                    <p className="text-xl mb-4 font-bold text-[#3B82F6]">
-                                    Outgoing Streams</p>
+                                  <div className="flex justify-between mb-4">
+                                    <p className="text-xl  font-bold text-[#3B82F6]">Outgoing Streams</p>
+                                    <span className={`px-5 py-1.5 rounded-full text-xs ${outgoingStream[8] ?' bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400' } `}>
+                                    {outgoingStream[8] === true ? "Active" : "Inactive"}
+                                  </span>
+                                  </div>
                                 <div className="flex justify-between mb-4 text-sm">
                                   <div>
                                     <p>
@@ -412,7 +467,7 @@ function Withdraw() {
                                  
                                 <progress value={32} max={100} className="h-2 rounded-2xl w-full"></progress>
 
-                                <p className="text-xs text-white/50">
+                                <p className="text-xs mb-4 text-white/50">
                                   Ends in{" "}
                                                                     
                                   {timeLeft[outgoingStream.id]?.d ?? 0}d{" "}
@@ -435,10 +490,11 @@ function Withdraw() {
                                     className="mt-2 w-full rounded-xl bg-[#1D2637] border border-white/10 px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
                                   />
                                     <button 
+                                    disabled={!walletAddress || !outgoingStream[8]}
                                       className={`
-                                         ${!walletAddress ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                         ${!walletAddress || !outgoingStream[8] ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                                         : 'bg-[#3B82F6] text-black hover:bg-blue-400'}
-                                        mt-8 w-full px-6 py-3 rounded-xl bg-[#3B82F6] text-black font-medium cursor-pointer text-lg hover:bg-blue-400 transition`}
+                                        mt-8 w-full px-6 py-3 rounded-xl bg-[#3B82F6] text-black font-medium cursor-pointer text-lg`}
                                     >
                                     Cancel Stream
                                     </button>

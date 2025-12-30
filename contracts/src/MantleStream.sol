@@ -319,6 +319,7 @@ contract MantleStream is ReentrancyGuard {
 
         // get total earned for a duration
         uint256 totalEarned = elapsed * stream.flowRate;
+        stream.endTime = block.timestamp;
 
         // Pay each recipient their final share
         for (uint256 i = 0; i < stream.recipient.length; i++) {
@@ -344,10 +345,13 @@ contract MantleStream is ReentrancyGuard {
             require(success, "transfer failed");
         }
 
-        delete streams[_streamId];
         emit StreamCancelled(_streamId);
     }
 
+    ///@dev used to calculate rewards for a user in a stream
+    ///@param user address of the user
+    ///@param stream the stream struct
+    ///@return the claimable amount
     function _calculateRewards(
         address user,
         Stream storage stream
@@ -375,9 +379,12 @@ contract MantleStream is ReentrancyGuard {
 
     function getClaimableBalance(uint256 streamId) public view returns (uint256) {
         Stream storage stream = streams[streamId];
-        require(stream.active, "stream inactive");
-        require(!stream.paused, "stream paused");
-        require(block.timestamp >= stream.startTime, "stream not started");
+        if (!stream.active) {
+            return 0;
+        }
+        if (stream.paused) {
+            return 0;
+        }
 
         uint256 elapsed;
 
