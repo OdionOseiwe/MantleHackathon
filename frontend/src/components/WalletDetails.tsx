@@ -1,8 +1,19 @@
 import { useWalletStore } from "../store/Connect";
 import { X } from "lucide-react";
 function WalletDetails({setShowWallets}:{setShowWallets:()=> void}) {
-  const {walletAddress} = useWalletStore();
+  const {walletAddress,getUSDT,transferringUSDT} = useWalletStore();
+
+  const handleGetUSDT = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    try {
+      await getUSDT();
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   return (
+
     <div className="absolute top-20 md:right-25 right-5 bg-[#112347]/90 text-white/50  z-20 max-w-3xl p-4 rounded-xl ">
       <div className="bg-[radial-gradient(circle_at_center,#112347,#0F1625,#0C1220)] p-8 rounded-xl border border-white/10
                       transform transition duration-200 hover:-translate-y-0.5  ">
@@ -21,13 +32,16 @@ function WalletDetails({setShowWallets}:{setShowWallets:()=> void}) {
         <p className="font-light">USDT BALANCE: {' '}<span className="text-white/70 font-semibold">{0}</span></p>
 
       </div>
-        <button className="
+        <button 
+        onClick={handleGetUSDT}
+        className="
             text-[#ffffff] w-full mt-8
+            cursor-pointer
             md:px-8 px-4 py-3 text-lg rounded-xl font-medium 
             bg-[#3B82F6] 
             transform transition duration-200 hover:-translate-y-0.5 
           ">
-            GET 100 USDT
+            {transferringUSDT ? 'Processing...' : 'GET 100 USDT'}
         </button>
     </div>
   )

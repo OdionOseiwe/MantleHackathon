@@ -8,13 +8,8 @@ import Skeleton from 'react-loading-skeleton'
 import 'react-loading-skeleton/dist/skeleton.css'
 import { ethers } from "ethers";
 
-//DO: loop through the ids for the sender or recipient and display them on the 
-// cards for users to paste or put them directly in the input for the card 
-//  withdrawal button for recipient and cancel for sender 
-// loop through the array 
 function Withdraw() {
   const [withdrawOptions, setWithdrawOptions] = useState<Record<number, string>>({});
-  const [selectedStreamId, setSelectedStreamId] = useState<number | null>(null);
   const [amountToWithdraw, setAmountToWithdraw] = useState<number | null>(null);
   const [newRecipient, setNewRecipient] = useState<string>('');
   const [transferAmount, setTransferAmount] = useState<number | null>(null);
@@ -76,6 +71,7 @@ function Withdraw() {
           status: statusRes?.[0]?.toString ? statusRes[0].toString() : (statusRes?.[0] ?? '0'),
         };
         return {
+            //@ts-ignore
           ...stream,
           id, // add id to the stream object
           arrayForSender,
@@ -104,6 +100,7 @@ function Withdraw() {
           status: statusRes?.[0],
         };
         return {
+            //@ts-ignore
           ...stream,
           id, // add id to the stream object
           arrayForRecipient,
@@ -332,7 +329,6 @@ function Withdraw() {
                                         stream ID
                                   </label>
                                   <input
-                                    onChange={(e) => setSelectedStreamId(Number(e.target.value))}
                                     type="number"
                                     placeholder=""
                                     defaultValue={streamData.id}
@@ -445,7 +441,7 @@ function Withdraw() {
                         }
                               
                         {
-                          arrayOfSenderStreams.map((outgoingStream, index)=>{
+                          arrayOfSenderStreams.map((outgoingStream)=>{
                             return (
                               <div key={outgoingStream.id} className="bg-white/5 backdrop-blur-lg p-6 md:p-10 w-fit rounded-3xl border border-white/10 text-white/70">
                                   <div className="flex justify-between mb-4">

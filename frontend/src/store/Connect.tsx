@@ -16,6 +16,7 @@ interface WalletState {
   streamsByRecipient:[],
   arrayOfStreamsForSender:any,
   stream:any,
+  transferringUSDT:boolean,
 
   setStatus: (s: string) => void;
 
@@ -24,6 +25,7 @@ interface WalletState {
   disconnectWallet: () => void;
 
   getStreamsBySender: (address:string| null) => Promise<void>;
+  getUSDT: () => Promise<void>;
   getStreamsByRecipient:(address:string| null) => Promise<void>;
   getArrayOfStreamsBySender: (address:number| null) => Promise<void>;
   cancelStream: (streamId:number) => Promise<void>;
@@ -60,10 +62,12 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
   streamsByRecipient:[],
   stream:null,
   arrayOfStreamsForSender:null,
+  transferringUSDT:false,
 
   setStatus: (status) => set({ status }),
 
   ensureCorrectMantleNetwork: async () => {
+    //@ts-ignore
     const { ethereum } = window;
     if (!ethereum) throw new Error("No Ethereum provider");
 
@@ -106,6 +110,7 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
   },
 
   connectWallet: async () => {
+    //@ts-ignore
     const { ethereum } = window;
     if (!ethereum) {
       set({ status: "Please install MetaMask" });
@@ -584,7 +589,7 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
     }
   },
 
-  transferFromStream: async (streamId:number, amountEth:number,  recipient:string) => {
+  transferFromStream: async (streamId:number, amountEth:string,  recipient:string) => {
     const {
       provider,
       signer,
@@ -622,8 +627,6 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
         error?.shortMessage || error?.message || "Transaction failed"
       );
       throw error;
-    } finally {
-      set({ isProcessing: false });
     }
   },
 
@@ -661,5 +664,43 @@ export const useWalletStore =  create<WalletState> ((set, get) => ({
       throw error;
     }
   },
+
+  getUSDT: async() =>{
+    const {
+      provider,
+      signer,
+      setStatus,
+    } = get();
+
+    if (!provider || !signer) {
+      setStatus("Please connect your wallet.");
+      return;
+    }
+
+    try {
+      const code = await provider.getCode(Mantle_stream_address);
+      if (!code || code === "0x") {
+        setStatus("Contract not deployed on this network.");
+        return;
+      }
+
+      set({transferringUSDT:true,status: "transferring USDT..." });
+      
+      const usdt = new ethers.Contract(Mock_USDT_address, MockUSDT, signer);
+      const approveTx = await usdt.mint(
+        signer.getAddress(),
+        ethers.parseUnits("100", 6)
+      );
+      await approveTx.wait();
+
+      set({status: "successfully USDT minted", transferringUSDT:false });
+    } catch (error: any) {
+      set({transferringUSDT:false});
+      setStatus(
+        error?.shortMessage || error?.message || "Transaction failed"
+      );
+      throw error;
+    }
+  }
 
 }));
