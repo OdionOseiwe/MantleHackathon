@@ -65,3 +65,98 @@ Fair settlement on cancellation:
 
 - Strict validation and access control
 
+## Tech Stack
+
+### Frontend
+- **Framework**: React js 
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS v4
+- **Animations**: Framer Motion
+- **Icons**: Lucide React
+
+### Blockchain & Web3
+- **Smart Contracts**: Solidity ^0.8.20
+- **Contract Framework**: OpenZeppelin Contracts
+- **Ethereum Library**: Ethers.js v6
+
+### Development Tools
+- **Package Manager**: npm
+- **Linting**: ESLint
+
+- **Type Checking**: TypeScript
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+ 
+- npm or yarn
+- MetaMask or compatible Web3 wallet
+- Mantle Sepolia testnet configured
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/OdionOseiwe/MantleHackathon.git
+   cd MantleHackathon
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Start development server**
+   ```bash
+   npm run dev
+   ```
+
+4. **Open your browser**
+   ```
+   http://localhost:5173/
+   ```
+
+### Smart Contract Deployment
+
+1. **Deploy MockUSDT contract**
+   ```bash
+   forge create src/MockUSDT.sol:MockUSDT --rpc-url <YOUR_RPC_URL> --private-key <YOUR_PRIVATE_KEY> --broadcast
+   ```
+
+2. **Deploy GiftVoucher contract**
+   ```bash
+   forge create src/MantleStream.sol:MantleStream --rpc-url <YOUR_RPC_URL> --private-key <YOUR_PRIVATE_KEY> --constructor-args [MockUSDT] --broadcast
+   ```
+
+3. **Update contract addresses in `src/constants/Address.ts`**
+
+
+# Usage Guide
+
+### Creating a Stream
+
+1. **Connect Wallet**: Click "Connect Wallet" and authorize your Web3 wallet (MetaMask / WalletConnect).
+
+2. **Enter Recipient**: Input the recipient's Ethereum address.
+
+3. **Enter Amount**: Specify the USDT amount to stream.
+
+4. **Select Duration**: Choose the duration for your stream (seconds, minutes, hours, or days).
+
+5. **Add Message**: Include a message to the recipient.
+
+6. **Create Stream**: Approve the transaction in your wallet and create the stream.
+
+### Batch Streaming (Multiple Recipients)
+
+1. **Enable Batch Mode**: Toggle the multi-recipient option
+
+2. **Add Recipients**: Enter multiple recipient addresses
+
+3. **Set Percentages / Amounts:**: Allocate the stream amount across recipients (percentages must sum to 100%).
+
+4. **Add Messages**: Personalize each recipient with a message.
+
+5. **Send Stream**: Approve the transaction to create all streams in one batch.
+
