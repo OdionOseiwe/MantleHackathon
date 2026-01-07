@@ -3,7 +3,6 @@
 Real-time, per-second money streaming protocol built on Mantle Network.
 
 MantleStream enables users to create continuous USDT payment streams that distribute funds every second to one or multiple recipients, with support for pausing, cancelling, claim transfers, and recipient redirection — all fully on-chain.
----
 
 ##  Project Overview
 
