@@ -263,16 +263,25 @@ contract MantleStream is ReentrancyGuard {
         require(!stream.paused, "stream paused");
 
         bool found = false;
+
         for (uint256 i = 0; i < stream.recipient.length; i++) {
             if (stream.recipient[i] == msg.sender) {
+                _removeStreamFromRecipient(msg.sender, _streamId);
+
                 stream.recipient[i] = _newRecipient;
+
+                streamsByRecipient[_newRecipient].push(_streamId);
+
                 found = true;
                 break;
             }
         }
+
         require(found, "caller not a recipient");
+
         emit StreamRedirected(_streamId, msg.sender, _newRecipient);
     }
+
 
     ///@dev used to pause stream
     ///@param _streamId stream id
@@ -443,5 +452,19 @@ contract MantleStream is ReentrancyGuard {
         Stream storage s = streams[streamId];
         return (s.recipient, s.percentages, s.amountWithdrawn);
     }
+
+    function _removeStreamFromRecipient(address recipient, uint256 streamId) internal {
+        uint256[] storage list = streamsByRecipient[recipient];
+        uint256 length = list.length;
+
+        for (uint256 i = 0; i < length; i++) {
+            if (list[i] == streamId) {
+                list[i] = list[length - 1];
+                list.pop();
+                break;
+            }
+        }
+    }
+
 
 }

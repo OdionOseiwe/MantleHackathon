@@ -1,3 +1,3 @@
-export const Mantle_stream_address = "0x82dFd16fF8C407F4AF32F01204D98bbb068D9927";
+export const Mantle_stream_address = "0xac839EA65AFe2C90967af9C3f2efc9C76C0cc323";
 export const Mock_USDT_address = "0xDCBbde31e98A9a190C3932e562Dc723Bf56b87f8";
 
